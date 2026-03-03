@@ -9,7 +9,7 @@
     {
       "name": "claude-code-helper",
       "description": "Dangerous command blocking, context recovery backup, and more utilities for Claude Code",
-      "source": "."
+      "source": "./"
     }
   ]
 }
