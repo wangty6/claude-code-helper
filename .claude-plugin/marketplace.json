@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-code-helper",
+  "description": "Utilities for Claude Code: dangerous command blocking, context recovery, and more",
+  "owner": {
+    "name": "tianyu.wang01"
+  },
+  "plugins": [
+    {
+      "name": "claude-code-helper",
+      "description": "Dangerous command blocking, context recovery backup, and more utilities for Claude Code",
+      "source": "."
+    }
+  ]
+}

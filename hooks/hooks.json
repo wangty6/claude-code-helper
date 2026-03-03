@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '${CLAUDE_PLUGIN_ROOT}/scripts/block-dangerous-commands.js'"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '${CLAUDE_PLUGIN_ROOT}/scripts/conv-backup.mjs'",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
