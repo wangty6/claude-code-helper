@@ -40,14 +40,19 @@ Shows context usage percentage in the status line and triggers backups at 30%, 1
 
 ```bash
 # In Claude Code, run:
-/plugin marketplace add your-github-username/claude-code-helper
+/plugin marketplace add wangty6/claude-code-helper
 /plugin install claude-code-helper
+```
+
+After installation, the plugin files are located at:
+```
+~/.claude/plugins/cache/claude-code-helper/claude-code-helper/1.0.0/
 ```
 
 ### Option B: Local testing
 
 ```bash
-claude --plugin-dir /path/to/claude-code-helper
+claude --plugin-dir ~/path/to/your/local/claude-code-helper
 ```
 
 ### StatusLine Setup (optional, manual)
@@ -58,14 +63,9 @@ The StatusLine feature cannot be auto-installed via plugins. Add this to `~/.cla
 {
   "statusLine": {
     "type": "command",
-    "command": "node /path/to/claude-code-helper/scripts/statusline-monitor.mjs"
+    "command": "node ~/.claude/plugins/cache/claude-code-helper/claude-code-helper/1.0.0/scripts/statusline-monitor.mjs"
   }
 }
-```
-
-After plugin installation, the path will be something like:
-```
-~/.claude/plugins/cache/<marketplace-name>/claude-code-helper/<version>/scripts/statusline-monitor.mjs
 ```
 
 ## Logs
