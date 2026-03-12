@@ -1,17 +1,37 @@
 # claude-code-helper
 
-Claude Code plugin with safety hooks, context recovery utilities, and AI-powered code reviews.
+> Safety rails, context recovery, and code review for Claude Code — so your AI assistant builds instead of breaks.
+
+Your AI coding assistant has root-level shell access. It can `rm -rf ~/`, force-push over main, or `curl | sh` a stranger's script — and it will, if the prompt is wrong. **claude-code-helper** is a Claude Code plugin that catches dangerous commands before they execute, saves your session context before it's lost to compaction, and gets a second AI to review the code before you ship it.
+
+## Why You Need This
+
+| Problem | What happens | How this plugin helps |
+|---------|-------------|----------------------|
+| **Dangerous commands slip through** | One bad `rm -rf`, `dd`, or force-push and your day is ruined | Blocks 30+ dangerous patterns across 3 safety levels *before* execution |
+| **Context vanishes on compaction** | Claude hits the token limit, compacts, and forgets what you were doing | Auto-saves structured session summaries at 30%, 15%, and 5% remaining context |
+| **No second pair of eyes** | Claude writes code, Claude reviews code — same blind spots | Routes your code to a *different* AI model for independent review |
+
+## Quick Start
+
+```bash
+# In Claude Code:
+/plugin marketplace add wangty6/claude-code-helper
+/plugin install claude-code-helper
+```
+
+That's it. Dangerous command blocking and context backups are active immediately.
 
 ## Features
 
-### 1. Dangerous Command Blocking (PreToolUse)
+### Dangerous Command Blocking
 
-Blocks dangerous Bash commands before execution. Three safety levels:
+Intercepts hazardous Bash commands at the PreToolUse hook — before they run. Three escalating safety levels:
 
 | Level | What it blocks |
 |-------|---------------|
 | `critical` | `rm -rf ~/`, `dd of=/dev/sda`, fork bombs, `mkfs` |
-| `high` (default) | + `curl | sh`, force push main, `git reset --hard`, secrets exposure |
+| `high` (default) | + `curl \| sh`, force push main, `git reset --hard`, secrets exposure |
 | `strict` | + any force push, `sudo rm`, `docker prune`, `git checkout .` |
 
 Configure via environment variable:
@@ -19,7 +39,9 @@ Configure via environment variable:
 export CLAUDE_SAFETY_LEVEL=strict  # or critical, high (default)
 ```
 
-### 2. Context Recovery Backup (PreCompact)
+Blocked commands are logged to `~/.claude/hooks-logs/YYYY-MM-DD.jsonl`.
+
+### Context Recovery Backup
 
 Automatically saves a markdown summary of your session before context compaction:
 - User requests
@@ -30,14 +52,17 @@ Automatically saves a markdown summary of your session before context compaction
 
 Backups are saved to `~/.claude/backups/`.
 
-### 3. StatusLine Monitor (manual setup)
+### StatusLine Monitor
 
 Shows context usage percentage in the status line and triggers backups at 30%, 15%, and 5% remaining context.
 
-### 4. Second Opinion Code Review
+> **Note:** Requires manual setup — see [StatusLine Setup](#statusline-setup-optional-manual) below.
 
-Sends Claude's plans and code to another AI model for review. Triggered manually via the `/second-opinion` slash command:
+### Second Opinion Code Review
 
+Sends Claude's plans and code to another AI model for independent review. Triggered manually via the `/second-opinion` slash command.
+
+**How it works:**
 1. Reads the conversation transcript (or specific files with `--files`)
 2. Formats it as context for review
 3. Sends it to a configured backend model (opencode, codex, gemini, openrouter, or custom)
@@ -180,10 +205,6 @@ The StatusLine feature cannot be auto-installed via plugins. Add this to `~/.cla
   }
 }
 ```
-
-## Logs
-
-Blocked commands are logged to `~/.claude/hooks-logs/YYYY-MM-DD.jsonl`.
 
 ## License
 
