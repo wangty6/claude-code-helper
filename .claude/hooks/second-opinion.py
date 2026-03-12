@@ -36,17 +36,20 @@ DEFAULTS = {
     "backends": {
         "opencode": {
             "command": "opencode",
-            "args_template": ["run", "{prompt}"],
+            "args_template": ["run"],
+            "prompt_mode": "stdin",
             "env": {},
         },
         "codex": {
             "command": "codex",
-            "args_template": ["-q", "--approval-mode", "never", "{prompt}"],
+            "args_template": ["-q", "--approval-mode", "never"],
+            "prompt_mode": "stdin",
             "env": {},
         },
         "gemini": {
             "command": "gemini",
-            "args_template": ["-p", "{prompt}"],
+            "args_template": ["-p"],
+            "prompt_mode": "stdin",
             "env": {},
         },
         "custom": {
@@ -410,31 +413,40 @@ def dispatch_review(prompt: str, config: dict, cwd: str, backend_override: str |
         return (False, f"Backend '{backend_name}' has no command configured")
 
     args_template = backend.get("args_template", ["{prompt}"])
+    prompt_mode = backend.get("prompt_mode", "file")  # "file" or "stdin"
     timeout = config.get("timeout", 300)
 
-    # Always write prompt to a temp file to avoid OS argument length limits.
-    # The {prompt} placeholder in args_template is replaced with the temp file path.
-    # Backend wrappers (e.g. openrouter-backend.py) detect file paths and read them.
-    # CLI backends like opencode receive the file path as the message argument.
+    # Prompt delivery:
+    # - "stdin": pipe prompt via stdin (for CLI tools like opencode, codex, gemini)
+    # - "file": write to temp file, replace {prompt} in args with file path
+    #           (for wrapper scripts like openrouter-backend.py that detect file paths)
     prompt_file = None
-    prompt_ref = prompt
-    try:
-        reviews_dir = os.path.join(cwd, ".claude", "reviews")
-        os.makedirs(reviews_dir, exist_ok=True)
-        prompt_file = open(
-            os.path.join(reviews_dir, ".prompt.tmp"), "w"
-        )
-        prompt_file.write(prompt)
-        prompt_file.close()
-        prompt_ref = prompt_file.name
-    except OSError:
-        prompt_ref = prompt  # Fall back to inline
+    stdin_data = None
+
+    if prompt_mode == "stdin":
+        stdin_data = prompt
+    else:
+        try:
+            reviews_dir = os.path.join(cwd, ".claude", "reviews")
+            os.makedirs(reviews_dir, exist_ok=True)
+            prompt_file = open(
+                os.path.join(reviews_dir, ".prompt.tmp"), "w"
+            )
+            prompt_file.write(prompt)
+            prompt_file.close()
+        except OSError:
+            # Fall back to stdin if file write fails
+            stdin_data = prompt
+            prompt_mode = "stdin"
 
     # Build command list
     cmd_list = [command]
     for arg in args_template:
         if "{prompt}" in arg:
-            cmd_list.append(arg.replace("{prompt}", prompt_ref))
+            if prompt_file:
+                cmd_list.append(arg.replace("{prompt}", prompt_file.name))
+            else:
+                cmd_list.append(arg.replace("{prompt}", prompt))
         else:
             cmd_list.append(arg)
 
@@ -450,6 +462,7 @@ def dispatch_review(prompt: str, config: dict, cwd: str, backend_override: str |
     try:
         result = subprocess.run(
             cmd_list,
+            input=stdin_data,
             capture_output=True,
             text=True,
             timeout=timeout,
