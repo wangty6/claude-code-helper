@@ -1,6 +1,6 @@
 # claude-code-helper
 
-Claude Code plugin with safety hooks and context recovery utilities.
+Claude Code plugin with safety hooks, context recovery utilities, and AI-powered code reviews.
 
 ## Features
 
@@ -34,6 +34,104 @@ Backups are saved to `~/.claude/backups/`.
 
 Shows context usage percentage in the status line and triggers backups at 30%, 15%, and 5% remaining context.
 
+### 4. Second Opinion Code Review
+
+Sends Claude's plans and code to another AI model for review. Triggered manually via the `/second-opinion` slash command:
+
+1. Reads the conversation transcript (or specific files with `--files`)
+2. Formats it as context for review
+3. Sends it to a configured backend model (opencode, codex, gemini, openrouter, or custom)
+4. Writes the review to `.claude/reviews/latest.md`
+5. Presents findings in the transcript
+
+#### Prerequisites
+
+- Python 3.8+
+- At least one backend CLI installed:
+
+| Backend | Command | Install |
+|---------|---------|---------|
+| OpenCode | `opencode` | [github.com/opencode-ai/opencode](https://github.com/opencode-ai/opencode) |
+| Codex | `codex` | [github.com/openai/codex](https://github.com/openai/codex) |
+| Gemini CLI | `gemini` | [github.com/google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) |
+| OpenRouter | `openrouter-backend.py` | Included (set `OPENROUTER_API_KEY`) |
+| Custom | any CLI | Configure in config |
+
+#### Configuration
+
+Edit `.claude/second-opinion.config.json`:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `true` | Enable/disable the plugin |
+| `auto_review_on_stop` | `false` | Auto-review on every Stop event (requires Stop hook registration) |
+| `backend` | `"opencode"` | Which backend to use |
+| `max_context_messages` | `20` | Max transcript messages to include |
+| `max_context_chars` | `30000` | Max characters of context |
+| `timeout` | `300` | Backend timeout in seconds |
+| `cooldown` | `30` | Min seconds between reviews |
+| `min_assistant_length` | `200` | Skip review if assistant response is shorter |
+| `skip_patterns` | `[...]` | Regex patterns to skip (matched against user message) |
+| `review_language` | `"en"` | Language for the review output |
+
+Each backend in `backends` has:
+- `command` — CLI executable name
+- `args_template` — Arguments list; `{prompt}` is replaced with the review prompt
+- `env` — Extra environment variables
+
+#### Usage
+
+**In Claude Code:** Use the `/second-opinion` slash command. You can also tell Claude:
+> Read .claude/reviews/latest.md and address the issues found.
+
+**CLI — review transcript:**
+```bash
+python3 .claude/hooks/second-opinion.py --transcript /path/to/transcript.jsonl --cwd . --force
+```
+
+**CLI — review specific files:**
+```bash
+python3 .claude/hooks/second-opinion.py --files src/main.py lib/ --cwd . --force
+```
+
+#### CLI Flags
+
+| Flag | Description |
+|------|-------------|
+| `--transcript PATH` | Path to JSONL transcript file |
+| `--cwd PATH` | Working directory override |
+| `--force` | Bypass cooldown and length checks |
+| `--backend NAME` | Override configured backend |
+| `--files PATH [PATH ...]` | Review specific files/directories instead of transcript |
+| `--prep-only` | Extract context and save prompt, then exit (for teammate mode) |
+| `--dispatch FILE` | Read prompt from file, call backend, save review |
+
+#### Security Notes
+
+- The transcript context is sent to the configured backend CLI, which forwards it to its respective AI service
+- Review files are written locally and excluded from git by default
+- No network calls are made directly — all communication goes through the backend CLI
+- The hook always exits with code 0 to never block Claude Code
+
+#### Troubleshooting
+
+**Hook doesn't run:**
+- Verify `.claude/settings.local.json` has the Stop hook registered
+- Check `enabled` is `true` in config
+- Check cooldown hasn't been hit (delete `.claude/reviews/.last_run` to reset)
+
+**Backend not found:**
+- Ensure the CLI is installed and on your PATH
+- Run `which opencode` (or your backend) to verify
+
+**Empty reviews:**
+- Transcript may be too short — check `min_assistant_length`
+- Try `--force` flag to bypass skip checks
+
+**Review quality:**
+- Increase `max_context_messages` and `max_context_chars` for more context
+- Try a different backend for different perspectives
+
 ## Installation
 
 ### Option A: Plugin Marketplace (recommended)
@@ -55,6 +153,21 @@ After installation, the plugin files are located at:
 claude --plugin-dir ~/path/to/your/local/claude-code-helper
 ```
 
+### Option C: Standalone install (second opinion + commands)
+
+```bash
+bash /path/to/claude-code-helper/install.sh           # user-level (default, recommended)
+bash /path/to/claude-code-helper/install.sh --project . # project-level
+```
+
+This installs the second-opinion hook, `/second-opinion` and `/backups` commands, and config. User-level install goes to `~/.claude/` and applies to all projects. Project-level goes to `.claude/` in the target directory.
+
+To uninstall:
+```bash
+bash /path/to/claude-code-helper/install.sh --uninstall            # user-level
+bash /path/to/claude-code-helper/install.sh --uninstall --project . # project-level
+```
+
 ### StatusLine Setup (optional, manual)
 
 The StatusLine feature cannot be auto-installed via plugins. Add this to `~/.claude/settings.json`:
@@ -71,3 +184,7 @@ The StatusLine feature cannot be auto-installed via plugins. Add this to `~/.cla
 ## Logs
 
 Blocked commands are logged to `~/.claude/hooks-logs/YYYY-MM-DD.jsonl`.
+
+## License
+
+MIT
